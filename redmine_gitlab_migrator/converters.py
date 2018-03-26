@@ -2,17 +2,28 @@
 """
 
 import logging
+import re
+
 import yaml
 
 log = logging.getLogger(__name__)
 user_dict = None
+user_keys = {}
 
 # Utils
+
 
 def load_user_dict(path):
     global user_dict
     with open(path, 'r') as stream:
         user_dict = yaml.load(stream)
+
+
+def load_user_keys(path):
+    global user_keys
+    with open(path, 'r') as stream:
+        user_keys = yaml.load(stream)
+
 
 def redmine_username_to_gitlab_username(redmine_username):
     if user_dict is not None and redmine_username in user_dict:
@@ -48,6 +59,49 @@ def convert_attachment(redmine_issue_attachment, redmine_api_key):
     return uploads
 
 
+def markdown_cleanup(text):
+    """ Clean the Redmine syntaxt for markdown export.
+
+    :param text: Text from redmine.
+    :rtype: str
+    :return: cleaned text.
+    """
+    has_star_list = False
+    in_code = False
+    lines = []
+
+    text = text.replace("\\*", "*")
+
+    for line in text.split("\n"):
+        if line.startswith("* "):
+            has_star_list = True
+
+        if "<pre>" in line:
+            in_code = True
+
+        if "</pre>" in line:
+            in_code = False
+
+        line = line.replace("\\_", "_")
+        line = line.replace("\\-\nhttp", "- http")
+        line = line.replace("\\-", "-")
+
+        if not in_code:
+            line = re.sub("\B\+([^+]+)\+\B", "_\g<1>_", line)
+            line = line.replace("<", "&lt;")
+            line = line.replace(">", "&gt;")
+
+        line = line.replace("<pre>", "```")
+        line = line.replace("</pre>", "```")
+
+        if has_star_list:
+            line = re.sub("^- ", " - ", line)
+
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
 def convert_notes(redmine_issue_journals, redmine_user_index, gitlab_user_index, textile_converter, sudo):
     """ Convert a list of redmine journal entries to gitlab notes
 
@@ -63,7 +117,7 @@ def convert_notes(redmine_issue_journals, redmine_user_index, gitlab_user_index,
     for entry in redmine_issue_journals:
         journal_notes = entry.get('notes', '')
         if len(journal_notes) > 0:
-            journal_notes = textile_converter.convert(journal_notes)
+            # journal_notes = textile_converter.convert(journal_notes)
             try:
                 author = redmine_uid_to_gitlab_user(
                     entry['user']['id'], redmine_user_index, gitlab_user_index)['username']
@@ -80,11 +134,14 @@ def convert_notes(redmine_issue_journals, redmine_user_index, gitlab_user_index,
                 creator_text = ''
             body = "{}\n\n*(from redmine: written on {}{})*".format(
                 journal_notes, entry['created_on'][:10], creator_text)
+
+            body = markdown_cleanup(body)
+
             data = {'body': body, 'created_at': entry['created_on']}
             if sudo:
                 meta = {'sudo_user': author}
             else:
-                meta = {}
+                meta = {'fake_sudo': user_keys.get(author, None)}
             yield (data, meta)
 
 
@@ -220,10 +277,14 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     else:
         creator_text = ''
 
+    description = redmine_issue['description']
+    # description = textile_converter.convert(description)
+    description = markdown_cleanup(description)
+
     data = {
         'title': title,
         'description': '{}\n\n*(from redmine: issue id {}, created on {}{}{})*\n{}{}{}'.format(
-            textile_converter.convert(redmine_issue['description']),
+            description,
             redmine_issue['id'],
             redmine_issue['created_on'][:10],
             creator_text,
@@ -245,7 +306,8 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         'notes': list(convert_notes(redmine_issue['journals'],
                           redmine_user_index, gitlab_user_index, textile_converter, sudo)),
         'must_close': closed,
-        'uploads': list(convert_attachment(a, redmine_api_key) for a in attachments)
+        'uploads': list(convert_attachment(a, redmine_api_key) for a in attachments),
+        'fake_sudo': user_keys.get(author_login, None),
     }
     if sudo:
         meta['sudo_user'] = author_login
