@@ -143,6 +143,8 @@ class GitlabProject(Project):
         # attachments have to be uploaded prior to creating an issue
         # attachments are not related to an issue but can be referenced instead
         # see: https://docs.gitlab.com/ce/api/projects.html#upload-a-file
+        api_key_orig = self.api.api_key
+
         uploads_text = self.uploads_to_string(meta['uploads'])
         if len(uploads_text) > 0:
            data['description'] = "{}\n* Uploads:\n  * {}".format(data['description'], uploads_text)
@@ -150,9 +152,17 @@ class GitlabProject(Project):
         headers = {}
         if 'sudo_user' in meta:
             headers['SUDO'] = meta['sudo_user']
+
+        if meta.get('fake_sudo', None):
+            self.api.api_key = meta['fake_sudo']
+
         issues_url = '{}/issues'.format(self.api_url)
         issue = self.api.post(
             issues_url, data=data, headers=headers)
+
+        print("posting with api key %s on %s" % (self.api.api_key, issues_url))
+
+        self.api.api_key = api_key_orig
 
         issue_url = '{}/{}'.format(issues_url, issue['id'])
 
@@ -162,9 +172,15 @@ class GitlabProject(Project):
             note_headers = {}
             if 'sudo_user' in note_meta:
                 note_headers['SUDO'] = note_meta['sudo_user']
+
+            if note_meta.get('fake_sudo', None):
+                self.api.api_key = note_meta['fake_sudo']
+
             self.api.post(
                 issue_notes_url, data=note_data,
                 headers=note_headers)
+
+            self.api.api_key = api_key_orig
 
         # Handle closed status
         if meta['must_close']:

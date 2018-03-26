@@ -6,7 +6,7 @@ import sys
 
 from redmine_gitlab_migrator.redmine import RedmineProject, RedmineClient
 from redmine_gitlab_migrator.gitlab import GitlabProject, GitlabClient
-from redmine_gitlab_migrator.converters import convert_issue, convert_version, load_user_dict
+from redmine_gitlab_migrator.converters import convert_issue, convert_version, load_user_dict, load_user_keys
 from redmine_gitlab_migrator.logger import setup_module_logging
 from redmine_gitlab_migrator.wiki import TextileConverter, WikiPageConverter
 from redmine_gitlab_migrator import sql
@@ -95,6 +95,11 @@ def parse_args():
         help="file path with redmine user mapping to gitlab user, in YAML format")
 
     parser_issues.add_argument(
+        '--user-keys',
+        required=False,
+        help="file path with gitlab user mapping to api key, in YAML format")
+
+    parser_issues.add_argument(
         '--project-members-only',
         required=False, action='store_true', default=False,
         help="get project members instead of all users, useful for gitlab.com")
@@ -113,6 +118,11 @@ def parse_args():
         '--initial-id',
         required=False,
         help="Initial issue ID, to skip some issues")
+
+    parser_issues.add_argument(
+        '--max-id',
+        required=False,
+        help="Max issue ID, to skip some issues")
 
     parser_issues.add_argument(
         '--no-sudo', dest='sudo',
@@ -207,6 +217,9 @@ def perform_migrate_issues(args):
     if (args.user_dict is not None):
         load_user_dict(args.user_dict)
 
+    if (args.user_keys is not None):
+        load_user_keys(args.user_keys)
+
     redmine = RedmineClient(args.redmine_key, args.no_verify)
     gitlab = GitlabClient(args.gitlab_key, args.no_verify)
 
@@ -231,6 +244,8 @@ def perform_migrate_issues(args):
     issues = redmine_project.get_all_issues()
     if args.initial_id:
         issues = [issue for issue in issues if int(args.initial_id) <= issue['id']]
+    if args.max_id:
+        issues = [issue for issue in issues if int(args.max_id) >= issue['id']]
 
     # convert issues
     log.info('Converting issues')
