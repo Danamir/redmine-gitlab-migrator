@@ -9,3 +9,7 @@ build/
 *.egg-info
 dist/
 .idea/
+*.iml
+users.yml
+keys.yml
+redmine_to_gitlab.md
