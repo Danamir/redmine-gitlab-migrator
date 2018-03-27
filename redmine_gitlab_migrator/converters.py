@@ -86,17 +86,27 @@ def markdown_cleanup(text):
         line = line.replace("\\-\nhttp", "- http")
         line = line.replace("\\-", "-")
 
-        if not in_code:
-            line = re.sub("\B\+([^+]+)\+\B", "_\g<1>_", line)
-            line = line.replace("<", "&lt;")
-            line = line.replace(">", "&gt;")
-
         line = line.replace("<pre>", "```")
         line = line.replace("</pre>", "```")
 
-        if has_star_list:
-            line = re.sub("^- ", " - ", line)
+        if not in_code:
+            line = re.sub("(^|[\s,.:;]+)\+([^+]+)\+([\s,.:;]+|$)", "\g<1>_\g<2>_\g<3>", line)  # + to _ around word
+            line = re.sub("(^|[\s,.:;]+)-([^-]+)-([\s,.:;]+|$)", "\g<1>~~\g<2>~~\g<3>", line)  # - to ~~ around word
+            line = re.sub("(^|[\s,.:;]+)\*([^*]+)\*([\s,.:;]+|$)", "\g<1>**\g<2>**\g<3>", line)  # * to ** around word
+            line = line.replace("<", "&lt;")
+            line = line.replace(">", "&gt;")
+            line = re.sub("^&gt;", ">", line)  # keep quotation ">"
 
+            if has_star_list:
+                line = re.sub("^- ", " - ", line)
+
+            line = line+"  "  # force return to new line in markdown
+
+        if "redmine" in line:
+            print(line)
+        line = re.sub("^\s*\*{2}(\(from redmine:.*\))\*{2}\s*$", "*\g<1>*", line)  # clean "from redmine" comment
+
+        # append line
         lines.append(line)
 
     return "\n".join(lines)

@@ -184,7 +184,12 @@ class GitlabProject(Project):
 
         # Handle closed status
         if meta['must_close']:
+            if meta.get('fake_sudo', None):
+                self.api.api_key = meta['fake_sudo']
+
             self.api.put(issue_url, {'state_event': 'close'})
+
+            self.api.api_key = api_key_orig
 
         return issue
 
