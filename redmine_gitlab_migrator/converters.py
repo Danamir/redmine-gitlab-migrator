@@ -95,15 +95,14 @@ def markdown_cleanup(text):
             line = re.sub("(^|[\s,.:;]+)\*([^*]+)\*([\s,.:;]+|$)", "\g<1>**\g<2>**\g<3>", line)  # * to ** around word
             line = line.replace("<", "&lt;")
             line = line.replace(">", "&gt;")
-            line = re.sub("^&gt;", ">", line)  # keep quotation ">"
+            line = re.sub("^&gt;(.*)$", ">\g<1>\n", line)  # handle quotations
 
             if has_star_list:
                 line = re.sub("^- ", " - ", line)
+                line = re.sub("^ - ", "  - ", line)
 
             line = line+"  "  # force return to new line in markdown
 
-        if "redmine" in line:
-            print(line)
         line = re.sub("^\s*\*{2}(\(from redmine:.*\))\*{2}\s*$", "*\g<1>*", line)  # clean "from redmine" comment
 
         # append line
