@@ -256,13 +256,23 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     if len(custom_fields_text) > 0:
         custom_fields_text = "\n* Custom Fields:\n" + custom_fields_text
 
-    labels = [redmine_issue['tracker']['name']]
-    if (redmine_issue.get('category')):
+    labels = []
+    meta_labels = []
+
+    labels.append(redmine_issue['tracker']['name'])
+    meta_labels.append({"name": redmine_issue['tracker']['name'], 'color': "#7F8C8D"})
+
+    if redmine_issue.get('category'):
         labels.append(redmine_issue['category']['name'])
-    if (redmine_issue.get('status')):
+        meta_labels.append({"name": redmine_issue['category']['name'], "description": redmine_issue['category']['name']+" --", "color": "#44AD8E"})
+
+    if redmine_issue.get('status'):
         labels.append(redmine_issue['status']['name'])
-    if (redmine_issue.get('priority')):
+        meta_labels.append({"name": redmine_issue['status']['name']})
+
+    if redmine_issue.get('priority'):
         labels.append(redmine_issue['priority']['name'])
+        meta_labels.append({"name": redmine_issue['priority']['name'], 'color': "#7F8C8D"})
 
     attachments = redmine_issue.get('attachments', [])
     due_date = redmine_issue.get('due_date', None)
@@ -317,6 +327,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         'must_close': closed,
         'uploads': list(convert_attachment(a, redmine_api_key) for a in attachments),
         'fake_sudo': user_keys.get(author_login, None),
+        'labels': meta_labels,
     }
     if sudo:
         meta['sudo_user'] = author_login

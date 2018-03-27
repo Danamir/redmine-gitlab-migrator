@@ -1,6 +1,7 @@
 import re
 import logging
 import requests
+from requests import HTTPError
 
 from . import APIClient, Project
 from urllib.request import urlopen
@@ -94,6 +95,8 @@ class GitlabProject(Project):
         self.api_url = (
             '{base_url}api/v3/projects/'.format(
                 **self._url_match.groupdict())) + str(projectId)
+
+        self._cache_labels = {}
 
 
     def is_repository_empty(self):
@@ -219,6 +222,33 @@ class GitlabProject(Project):
 
             self.api.put(milestone_url, data=altered_milestone)
         return milestone
+
+    def create_label(self, data):
+        """ High-level label creation
+
+        :param data: dict formatted as the gitlab API expects it
+        :return: the created milestone
+        """
+        labels_url = '{}/labels'.format(self.api_url)
+
+        # create label if not exists
+        label = self._cache_labels.get(data['name'], None)
+
+        if not label:
+            if not data.get('color', None):
+                data['color'] = "#428BCA"
+
+            try:
+                label = self.api.post(labels_url, data=data)
+                self._cache_labels[label['name']] = label
+            except HTTPError as e:
+                if "Conflict for url" in str(e):
+                    # ignore 409 Client Error: Conflict for url
+                    self._cache_labels[data['name']] = data
+                else:
+                    raise e
+
+        return label
 
     def get_issues(self):
         return self.api.get('{}/issues'.format(self.api_url))

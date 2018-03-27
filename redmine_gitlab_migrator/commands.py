@@ -274,6 +274,8 @@ def perform_migrate_issues(args):
                 data['title'],
                 len(meta['notes'])))
 
+            log.info('Creating labels %s' % meta.get('labels', []))
+            
         else:
             if args.keep_id:
                 try:
@@ -290,6 +292,9 @@ def perform_migrate_issues(args):
                     raise
 
             try:
+                for label in meta.get('labels', []):
+                    created_label = gitlab_project.create_label(label)
+
                 created = gitlab_project.create_issue(data, meta)
                 last_iid = created['iid']
                 log.info('#{iid} {title}'.format(**created))
