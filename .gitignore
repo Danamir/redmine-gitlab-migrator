@@ -12,5 +12,6 @@ dist/
 *.iml
 users.yml
 keys.yml
+conf.yml
 redmine_to_gitlab.md
 .env
