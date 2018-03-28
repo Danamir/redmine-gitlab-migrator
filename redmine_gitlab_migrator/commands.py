@@ -10,7 +10,7 @@ from redmine_gitlab_migrator.converters import convert_issue, convert_version, l
 from redmine_gitlab_migrator.logger import setup_module_logging
 from redmine_gitlab_migrator.wiki import TextileConverter, WikiPageConverter
 from redmine_gitlab_migrator import sql
-
+from redmine_gitlab_migrator.db import init_db
 
 """Migration commands for issues and roadmaps from redmine to gitlab
 """
@@ -206,6 +206,8 @@ def perform_migrate_pages(args):
         wiki.convert(page)
 
 def perform_migrate_issues(args):
+    init_db()
+
     closed_states = []
     if (args.closed_states):
         closed_states = args.closed_states.split(',')
@@ -275,6 +277,7 @@ def perform_migrate_issues(args):
                 len(meta['notes'])))
 
             log.info('Labels %s' % meta.get('labels', []))
+            log.info('Tags %s' % meta.get('tags', []))
             log.info('Watchers %s' % meta.get('watchers', []))
 
         else:
@@ -295,7 +298,11 @@ def perform_migrate_issues(args):
             try:
                 # labels
                 for label in meta.get('labels', []):
-                    created_label = gitlab_project.create_label(label)
+                    gitlab_project.create_label(label)
+
+                # tags
+                for tag in meta.get('tags', []):
+                    gitlab_project.create_label(tag)
 
                 # issue
                 created = gitlab_project.create_issue(data, meta)

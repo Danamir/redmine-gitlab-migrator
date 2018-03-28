@@ -6,6 +6,8 @@ import re
 
 import yaml
 
+from redmine_gitlab_migrator.db import issue_tags
+
 log = logging.getLogger(__name__)
 user_dict = None
 user_keys = {}
@@ -256,6 +258,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     if len(custom_fields_text) > 0:
         custom_fields_text = "\n* Custom Fields:\n" + custom_fields_text
 
+    # watchers
     watchers = []
     for w in redmine_issue.get('watchers', []):
         watcher = redmine_uid_to_gitlab_user(w['id'], redmine_user_index, gitlab_user_index)['username']
@@ -265,6 +268,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
             'data': {'name': 'thumbsup'},
         })
 
+    # labels
     labels = []
     meta_labels = []
 
@@ -282,6 +286,14 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     if redmine_issue.get('priority'):
         labels.append(redmine_issue['priority']['name'])
         meta_labels.append({"name": redmine_issue['priority']['name'], 'color': "#7F8C8D"})
+
+    # tags
+    tags = issue_tags(redmine_issue['id'])
+    meta_tags = []
+    for t in tags:
+        if t not in labels:
+            labels.append(t)
+        meta_tags.append({"name": t, 'color': "#FFFFFF"})
 
     attachments = redmine_issue.get('attachments', [])
     due_date = redmine_issue.get('due_date', None)
@@ -337,6 +349,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         'uploads': list(convert_attachment(a, redmine_api_key) for a in attachments),
         'fake_sudo': user_keys.get(author_login, None),
         'labels': meta_labels,
+        'tags': meta_tags,
         'watchers': watchers,
     }
     if sudo:
