@@ -274,8 +274,9 @@ def perform_migrate_issues(args):
                 data['title'],
                 len(meta['notes'])))
 
-            log.info('Creating labels %s' % meta.get('labels', []))
-            
+            log.info('Labels %s' % meta.get('labels', []))
+            log.info('Watchers %s' % meta.get('watchers', []))
+
         else:
             if args.keep_id:
                 try:
@@ -292,11 +293,18 @@ def perform_migrate_issues(args):
                     raise
 
             try:
+                # labels
                 for label in meta.get('labels', []):
                     created_label = gitlab_project.create_label(label)
 
+                # issue
                 created = gitlab_project.create_issue(data, meta)
                 last_iid = created['iid']
+
+                # watchers
+                for watcher in meta.get('watchers', []):
+                    created_watcher = gitlab_project.create_watcher(watcher.get('data', {}), watcher, created['iid'])
+
                 log.info('#{iid} {title}'.format(**created))
             except:
                 log.info('create issue "{}" failed'.format(data['title']))

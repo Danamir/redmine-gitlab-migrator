@@ -96,6 +96,10 @@ class GitlabProject(Project):
             '{base_url}api/v3/projects/'.format(
                 **self._url_match.groupdict())) + str(projectId)
 
+        self.api_url_v4 = (
+            '{base_url}api/v4/projects/'.format(
+                **self._url_match.groupdict())) + str(projectId)
+
         self._cache_labels = {}
 
 
@@ -162,8 +166,6 @@ class GitlabProject(Project):
         issues_url = '{}/issues'.format(self.api_url)
         issue = self.api.post(
             issues_url, data=data, headers=headers)
-
-        print("posting with api key %s on %s" % (self.api.api_key, issues_url))
 
         self.api.api_key = api_key_orig
 
@@ -249,6 +251,24 @@ class GitlabProject(Project):
                     raise e
 
         return label
+
+    def create_watcher(self, data, meta, iid):
+        """ High-level watcher creation
+
+        :param data: dict formatted as the gitlab API expects it
+        :param meta: meta dict
+        :param iid: issue id
+        :return: the created milestone
+        """
+        api_key_orig = self.api.api_key
+        self.api.api_key = meta.get('fake_sudo', api_key_orig)
+
+        watchers_url = '{}/issues/{}/award_emoji'.format(self.api_url_v4, iid)
+        watcher = self.api.post(watchers_url, data=data)
+
+        self.api.api_key = api_key_orig
+
+        return watcher
 
     def get_issues(self):
         return self.api.get('{}/issues'.format(self.api_url))

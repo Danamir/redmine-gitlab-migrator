@@ -256,6 +256,15 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     if len(custom_fields_text) > 0:
         custom_fields_text = "\n* Custom Fields:\n" + custom_fields_text
 
+    watchers = []
+    for w in redmine_issue.get('watchers', []):
+        watcher = redmine_uid_to_gitlab_user(w['id'], redmine_user_index, gitlab_user_index)['username']
+        watchers.append({
+            'watcher': watcher,
+            'fake_sudo': user_keys.get(watcher, None),
+            'data': {'name': 'thumbsup'},
+        })
+
     labels = []
     meta_labels = []
 
@@ -328,6 +337,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         'uploads': list(convert_attachment(a, redmine_api_key) for a in attachments),
         'fake_sudo': user_keys.get(author_login, None),
         'labels': meta_labels,
+        'watchers': watchers,
     }
     if sudo:
         meta['sudo_user'] = author_login
