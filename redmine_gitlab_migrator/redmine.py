@@ -141,3 +141,7 @@ class RedmineProject(Project):
     def get_versions(self):
         response = self.api.get('{}/versions.json'.format(self.public_url))
         return response['versions']
+
+    def get_id(self):
+        response = self.api.get('{}.json'.format(self.public_url))
+        return response['id']

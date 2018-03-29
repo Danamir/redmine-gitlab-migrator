@@ -10,7 +10,7 @@ from redmine_gitlab_migrator.converters import convert_issue, convert_version, l
 from redmine_gitlab_migrator.logger import setup_module_logging
 from redmine_gitlab_migrator.wiki import TextileConverter, WikiPageConverter
 from redmine_gitlab_migrator import sql
-from redmine_gitlab_migrator.db import init_db
+from redmine_gitlab_migrator.db import init_db, project_labels
 
 """Migration commands for issues and roadmaps from redmine to gitlab
 """
@@ -41,6 +41,10 @@ def parse_args():
         'roadmap', help=perform_migrate_roadmap.__doc__)
     parser_roadmap.set_defaults(func=perform_migrate_roadmap)
 
+    parser_labels = subparsers.add_parser(
+        'labels', help=perform_migrate_labels.__doc__)
+    parser_labels.set_defaults(func=perform_migrate_labels)
+
     parser_redirect = subparsers.add_parser(
         'redirect', help=perform_redirect.__doc__)
     parser_redirect.set_defaults(func=perform_redirect)
@@ -49,21 +53,21 @@ def parse_args():
         'iid', help=perform_migrate_iid.__doc__)
     parser_iid.set_defaults(func=perform_migrate_iid)
 
-    for i in (parser_issues, parser_pages, parser_roadmap, parser_redirect):
+    for i in (parser_issues, parser_pages, parser_roadmap, parser_labels, parser_redirect):
         i.add_argument('redmine_project_url')
         i.add_argument(
             '--redmine-key',
             required=True,
             help="Redmine administrator API key")
 
-    for i in (parser_issues, parser_roadmap, parser_iid, parser_redirect):
+    for i in (parser_issues, parser_roadmap, parser_labels, parser_iid, parser_redirect):
         i.add_argument('gitlab_project_url')
         i.add_argument(
             '--gitlab-key',
             required=True,
             help="Gitlab administrator API key")
 
-    for i in (parser_issues, parser_pages, parser_roadmap, parser_iid, parser_redirect):
+    for i in (parser_issues, parser_pages, parser_roadmap, parser_labels, parser_iid, parser_redirect):
         i.add_argument(
             '--check',
             required=False, action='store_true', default=False,
@@ -401,6 +405,39 @@ def perform_migrate_roadmap(args):
         else:
             created = gitlab_project.create_milestone(data, meta)
             log.info("Version {}".format(created['title']))
+
+def perform_migrate_labels(args):
+    redmine = RedmineClient(args.redmine_key, args.no_verify)
+    gitlab = GitlabClient(args.gitlab_key, args.no_verify)
+
+    redmine_project = RedmineProject(args.redmine_project_url, redmine)
+    gitlab_project = GitlabProject(args.gitlab_project_url, gitlab)
+
+    pid = redmine_project.get_id()
+
+    init_db()
+    trackers, statuses, priorities, categories = project_labels(pid)
+
+    labels = []
+
+    for tracker in trackers:
+        labels.append({"name": tracker, 'color': "#7F8C8D"})
+
+    for status in statuses:
+        labels.append({"name": status, 'color': "#428BCA"})
+
+    for priority in priorities:
+        labels.append({"name": priority, 'color': "#7F8C8D"})
+
+    for category in categories:
+        labels.append({"name": category, 'color': "#44AD8E", 'description': category+' --'})
+
+    for data in labels:
+        if args.check:
+            log.info("Would create label {}".format(data))
+        else:
+            created = gitlab_project.create_label(data)
+            log.info("Label {}".format(created))
 
 def perform_redirect(args):
     redmine = RedmineClient(args.redmine_key, args.no_verify)
