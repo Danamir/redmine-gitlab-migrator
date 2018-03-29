@@ -1,6 +1,8 @@
+import re
+
 import yaml
 
-from peewee import Model, IntegerField, CharField, ModelBase, ForeignKeyField, DateTimeField
+from peewee import Model, IntegerField, CharField, ModelBase, ForeignKeyField, DateTimeField, BooleanField
 from playhouse.db_url import connect
 
 # global vars
@@ -24,12 +26,24 @@ class Trackers(BaseModel):
     name = CharField()
 
 
+class IssueStatuses(BaseModel):
+    id = IntegerField()
+    name = CharField()
+    is_closed = BooleanField()
+    position = IntegerField()
+
+    # class Meta:
+    #     table_name = "issue_statuses"
+
+
 class Issues(BaseModel):
     id = IntegerField()
     tracker_id = IntegerField()
     subject = CharField()
+    status_id = IntegerField()
 
     tracker = ForeignKeyField(Trackers, backref='issues', column_name='tracker_id')
+    status = ForeignKeyField(IssueStatuses, backref='issues', column_name='status_id')
 
 
 class Users(BaseModel):
@@ -71,12 +85,16 @@ def init_db():
     db_conf = conf_dict.get("db", {})
     db = connect(db_conf.get("url"))
 
-    # bind models to database
+    # bind models to database, set table names
     for k, v in globals().items():
         if isinstance(v, ModelBase) and getattr(v, "_meta", None):
             meta = getattr(v, "_meta", None)
             if meta:
-                meta.database = db
+                meta.database = db  # bind db
+
+                if meta.table_name == k.lower():
+                    # replace defautl table name by camel case to underscore separated
+                    meta.table_name = re.sub("([a-z])([A-Z])", "\g<1>_\g<2>", k).lower()
 
 
 def issue_tags(iid):
@@ -108,9 +126,10 @@ def db_test():
     # .select(Issues.id.alias("issue_id"), Issues, Tags.id.alias("tag_id"), Tags)\
 
     issues = Issues\
-        .select(Issues, Tags)\
+        .select(Issues, Tags, IssueStatuses)\
         .join(Taggings)\
         .join(Tags)\
+        .join(IssueStatuses, on=(Issues.status_id == IssueStatuses.id))\
         .where(Issues.id >= 1499)\
         .where(Taggings.taggable_type == 'Issue')\
         .order_by(Issues.id.asc())
@@ -123,10 +142,11 @@ def db_test():
     for i in issues:  # type: Issues
         print(i)
         print(i.taggings.tag.name)
+        print(i.status.name)
         # print(str(i.id).ljust(10), i.subject, t.taggable_type)
 
 
 if __name__ == '__main__':
     init_db()
-    # db_test()
-    print(issue_tags(1499))
+    db_test()
+    # print(issue_tags(1499))
