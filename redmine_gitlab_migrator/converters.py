@@ -100,8 +100,8 @@ def markdown_cleanup(text):
             line = re.sub("^&gt;(.*)$", ">\g<1>\n", line)  # handle quotations
 
             if has_star_list:
-                line = re.sub("^- ", " - ", line)
-                line = re.sub("^ - ", "  - ", line)
+                line = re.sub("^-[ \t]", " - ", line)
+                line = re.sub("^[ \t]-[ \t]", "  - ", line)
 
             line = line+"  "  # force return to new line in markdown
 
