@@ -30,6 +30,9 @@ class Enumerations(BaseModel):
 class Trackers(BaseModel):
     id = IntegerField()
     name = CharField()
+    is_in_chlog = BooleanField()
+    position = IntegerField()
+    is_in_roadmap = BooleanField()
 
 
 class IssueStatuses(BaseModel):
@@ -134,15 +137,16 @@ def issue_tags(iid):
 
 
 def issue_labels(iid):
-    """Get redmine issue labels extracted from status, priority, and category.
+    """Get redmine issue labels extracted from tracker, status, priority, and category.
 
     :param int iid: The issue id.
     :rtype: (str, str, str)
-    :return: Tuple of strings for status, priority, and category (category can be ``None``).
+    :return: Tuple of strings for tracker, status, priority, and category (category can be ``None``).
     """
-    status, priority, category = None, None, None
+    tracker, status, priority, category = None, None, None, None
 
-    issue = Issues.select(Issues, IssueStatuses, Enumerations, IssueCategories)\
+    issue = Issues.select(Issues, Trackers, IssueStatuses, Enumerations, IssueCategories)\
+        .join(Trackers)\
         .join(IssueStatuses, on=(Issues.status_id == IssueStatuses.id))\
         .join(Enumerations, on=((Issues.priority_id == Enumerations.id) & (Enumerations.type == 'IssuePriority')))\
         .join(IssueCategories, JOIN.LEFT_OUTER, on=(Issues.category_id == IssueCategories.id))\
@@ -150,6 +154,7 @@ def issue_labels(iid):
         .first()  # type: Issues
 
     if issue:
+        tracker = issue.tracker.name
         status = issue.status.name
         priority = issue.priority.name
         try:
@@ -157,16 +162,19 @@ def issue_labels(iid):
         except DoesNotExist:
             pass
 
-    return status, priority, category
+    return tracker, status, priority, category
 
 
 def project_labels(pid):
-    """Get redmine project labels extracted from status, priority, and category.
+    """Get redmine project labels extracted from trackers, status, priority, and category.
 
     :param int pid: The project id.
-    :rtype: (list[str], list[str], list[str])
-    :return: Tuple of lists for statuses, priorities, and categories.
+    :rtype: (list[str], list[str], list[str], list[str])
+    :return: Tuple of lists for trackers, statuses, priorities, and categories.
     """
+    trackers = Trackers.select()  # type: list[Trackers]
+    trackers = list(map(lambda x: x.name, trackers))  # type: list[str]
+
     statuses = IssueStatuses.select()  # type: list[IssueStatuses]
     statuses = list(map(lambda x: x.name, statuses))  # type: list[str]
     
@@ -176,7 +184,7 @@ def project_labels(pid):
     categories = IssueCategories.select().where(IssueCategories.project_id == pid)  # type: list[IssueCategories]
     categories = list(map(lambda x: x.name, categories))  # type: list[str]
 
-    return statuses, priorities, categories
+    return trackers, statuses, priorities, categories
 
 
 def db_test():
