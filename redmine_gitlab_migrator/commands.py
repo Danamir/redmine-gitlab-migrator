@@ -41,6 +41,11 @@ def parse_args():
         'roadmap', help=perform_migrate_roadmap.__doc__)
     parser_roadmap.set_defaults(func=perform_migrate_roadmap)
 
+    parser_roadmap.add_argument(
+        '--auto-milestones',
+        required=False,
+        help="Auto create milestones [monthly,yearly]")
+
     parser_labels = subparsers.add_parser(
         'labels', help=perform_migrate_labels.__doc__)
     parser_labels.set_defaults(func=perform_migrate_labels)
@@ -405,6 +410,10 @@ def perform_migrate_roadmap(args):
         else:
             created = gitlab_project.create_milestone(data, meta)
             log.info("Version {}".format(created['title']))
+
+    if args.auto_milestones:
+        print(args.auto_milestones)
+
 
 def perform_migrate_labels(args):
     redmine = RedmineClient(args.redmine_key, args.no_verify)
