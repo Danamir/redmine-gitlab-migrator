@@ -230,12 +230,15 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     if redmine_issue.get('closed_on', None):
         # quick'n dirty extract date
         close_text = ', closed on {}'.format(redmine_issue['closed_on'][:10])
+        milestone = redmine_issue['closed_on'][:7]
         closed = True
     elif issue_state.lower() in closed_states:
         close_text = ', closed (state: {})'.format(issue_state)
+        milestone = None
         closed = True
     else:
         close_text = ''
+        milestone = None
         closed = False
 
     relations = redmine_issue.get('relations', [])
@@ -265,7 +268,9 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         watchers.append({
             'watcher': watcher,
             'fake_sudo': user_keys.get(watcher, None),
-            'data': {'name': 'thumbsup'},
+            # 'data': {'name': 'thumbsup'},
+            'data': {'name': 'eye'},
+            # 'data': {'name': 'mag'},
         })
 
     # labels
@@ -293,7 +298,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     for t in tags:
         if t not in labels:
             labels.append(t)
-        meta_tags.append({"name": t, 'color': "#FFFFFF"})
+        meta_tags.append({"name": t, 'color': "#E4E4E4"})  # or #FFFFFF
 
     attachments = redmine_issue.get('attachments', [])
     due_date = redmine_issue.get('due_date', None)
@@ -341,6 +346,8 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
     version = redmine_issue.get('fixed_version', None)
     if version:
         data['milestone_id'] = gitlab_milestones_index[version['name']]['id']
+    elif milestone and gitlab_milestones_index.get(milestone, None):
+        data['milestone_id'] = gitlab_milestones_index[milestone]['id']
 
     meta = {
         'notes': list(convert_notes(redmine_issue['journals'],

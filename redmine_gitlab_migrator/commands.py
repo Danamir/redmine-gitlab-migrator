@@ -424,10 +424,10 @@ def perform_migrate_labels(args):
         labels.append({"name": category, 'color': "#44AD8E", 'description': category+' --'})
 
     for tracker in trackers:
-        labels.append({"name": tracker, 'color': "#7F8C8D"})
+        labels.append({"name": tracker, 'color': "#428BCA"})
 
     for status in statuses:
-        labels.append({"name": status, 'color': "#428BCA"})
+        labels.append({"name": status, 'color': "#7F8C8D"})
 
     for priority in priorities:
         labels.append({"name": priority, 'color': "#F0AD4E"})

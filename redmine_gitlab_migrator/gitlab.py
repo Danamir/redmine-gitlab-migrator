@@ -240,6 +240,12 @@ class GitlabProject(Project):
             if not data.get('color', None):
                 data['color'] = "#428BCA"
 
+            # color overrides
+            if data['name'] in ('In progress', 'En cours'):
+                data['color'] = "#5CB85C"
+            elif data['name'] in ('Testing', 'En test'):
+                data['color'] = "#9A90C5"
+
             try:
                 label = self.api.post(labels_url, data=data)
                 self._cache_labels[label['name']] = label
