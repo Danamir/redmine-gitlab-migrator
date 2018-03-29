@@ -285,7 +285,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
 
     if redmine_issue.get('priority'):
         labels.append(redmine_issue['priority']['name'])
-        meta_labels.append({"name": redmine_issue['priority']['name'], 'color': "#7F8C8D"})
+        meta_labels.append({"name": redmine_issue['priority']['name'], 'color': "#F0AD4E"})
 
     # tags
     tags = issue_tags(redmine_issue['id'])

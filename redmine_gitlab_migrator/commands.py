@@ -420,6 +420,9 @@ def perform_migrate_labels(args):
 
     labels = []
 
+    for category in categories:
+        labels.append({"name": category, 'color': "#44AD8E", 'description': category+' --'})
+
     for tracker in trackers:
         labels.append({"name": tracker, 'color': "#7F8C8D"})
 
@@ -427,17 +430,14 @@ def perform_migrate_labels(args):
         labels.append({"name": status, 'color': "#428BCA"})
 
     for priority in priorities:
-        labels.append({"name": priority, 'color': "#7F8C8D"})
-
-    for category in categories:
-        labels.append({"name": category, 'color': "#44AD8E", 'description': category+' --'})
+        labels.append({"name": priority, 'color': "#F0AD4E"})
 
     for data in labels:
         if args.check:
             log.info("Would create label {}".format(data))
         else:
             created = gitlab_project.create_label(data)
-            log.info("Label {}".format(created))
+            log.info("Label {}".format(created['name']))
 
 def perform_redirect(args):
     redmine = RedmineClient(args.redmine_key, args.no_verify)
