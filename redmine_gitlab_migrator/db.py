@@ -2,7 +2,7 @@ import re
 
 import yaml
 
-from peewee import Model, IntegerField, CharField, ModelBase, ForeignKeyField, DateTimeField, BooleanField
+from peewee import Model, IntegerField, CharField, ModelBase, ForeignKeyField, DateTimeField, BooleanField, JOIN, DoesNotExist
 from playhouse.db_url import connect
 
 # global vars
@@ -42,16 +42,24 @@ class IssueStatuses(BaseModel):
     #     table_name = "issue_statuses"
 
 
+class IssueCategories(BaseModel):
+    id = IntegerField()
+    project_id = IntegerField()
+    name = CharField()
+
+
 class Issues(BaseModel):
     id = IntegerField()
     tracker_id = IntegerField()
     subject = CharField()
     status_id = IntegerField()
     priority_id = IntegerField()
+    category_id = IntegerField()
 
     tracker = ForeignKeyField(Trackers, backref='issues', column_name='tracker_id')
     status = ForeignKeyField(IssueStatuses, backref='issues', column_name='status_id')
     priority = ForeignKeyField(Enumerations, backref='issues', column_name='priority_id')
+    category = ForeignKeyField(IssueCategories, backref='issues', column_name='category_id')
 
 
 class Users(BaseModel):
@@ -114,11 +122,61 @@ def issue_tags(iid):
     """
     ret = []
 
-    tags = Tags.select(Tags.name).join(Taggings).join(Issues).where((Taggings.taggable_type == 'Issue') & (Issues.id == iid))
+    tags = Tags.select(Tags.name)\
+        .join(Taggings)\
+        .join(Issues)\
+        .where((Taggings.taggable_type == 'Issue') & (Issues.id == iid))  # type: list[Tags]
+
     for t in tags:
         ret.append(t.name)
 
     return ret
+
+
+def issue_labels(iid):
+    """Get redmine issue labels extracted from status, priority, and category.
+
+    :param int iid: The issue id.
+    :rtype: (str, str, str)
+    :return: Tuple of strings for status, priority, and category (category can be ``None``).
+    """
+    status, priority, category = None, None, None
+
+    issue = Issues.select(Issues, IssueStatuses, Enumerations, IssueCategories)\
+        .join(IssueStatuses, on=(Issues.status_id == IssueStatuses.id))\
+        .join(Enumerations, on=((Issues.priority_id == Enumerations.id) & (Enumerations.type == 'IssuePriority')))\
+        .join(IssueCategories, JOIN.LEFT_OUTER, on=(Issues.category_id == IssueCategories.id))\
+        .where(Issues.id == iid)\
+        .first()  # type: Issues
+
+    if issue:
+        status = issue.status.name
+        priority = issue.priority.name
+        try:
+            category = issue.category.name
+        except DoesNotExist:
+            pass
+
+    return status, priority, category
+
+
+def project_labels(pid):
+    """Get redmine project labels extracted from status, priority, and category.
+
+    :param int pid: The project id.
+    :rtype: (list[str], list[str], list[str])
+    :return: Tuple of lists for statuses, priorities, and categories.
+    """
+    statuses = IssueStatuses.select()  # type: list[IssueStatuses]
+    statuses = list(map(lambda x: x.name, statuses))  # type: list[str]
+    
+    priorities = Enumerations.select().where(Enumerations.type == 'IssuePriority')  # type: list[Enumerations]
+    priorities = list(map(lambda x: x.name, priorities))  # type: list[str]
+    
+    categories = IssueCategories.select().where(IssueCategories.project_id == pid)  # type: list[IssueCategories]
+    categories = list(map(lambda x: x.name, categories))  # type: list[str]
+
+    return statuses, priorities, categories
 
 
 def db_test():
@@ -134,12 +192,13 @@ def db_test():
     # .select(Issues.id.alias("issue_id"), Issues, Tags.id.alias("tag_id"), Tags)\
 
     issues = Issues\
-        .select(Issues, Tags, IssueStatuses, Enumerations)\
+        .select(Issues, Tags, IssueStatuses, Enumerations, IssueCategories)\
         .join(Taggings, on=((Issues.id == Taggings.taggable_id) & (Taggings.taggable_type == 'Issue')))\
         .join(Tags)\
         .join(IssueStatuses, on=(Issues.status_id == IssueStatuses.id))\
+        .join(IssueCategories, JOIN.LEFT_OUTER, on=(Issues.category_id == IssueCategories.id))\
         .join(Enumerations, on=((Issues.priority_id == Enumerations.id) & (Enumerations.type == 'IssuePriority')))\
-        .where(Issues.id >= 1499)\
+        .where(Issues.id == 1499)\
         .order_by(Issues.id.asc())
     print(issues.sql())
 
@@ -150,10 +209,16 @@ def db_test():
     for i in issues:  # type: Issues
         print(i.id, i.subject)
         print(i.taggings.tag.name, i.status.name, i.priority.name)
+        try:
+            print(i.category.name)
+        except DoesNotExist:
+            pass
         # print(str(i.id).ljust(10), i.subject, t.taggable_type)
 
 
 if __name__ == '__main__':
     init_db()
     db_test()
+    print(issue_labels(1500))
+    print(project_labels(6))
     # print(issue_tags(1499))
