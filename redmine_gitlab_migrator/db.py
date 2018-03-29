@@ -21,6 +21,12 @@ class Boards(BaseModel):
     name = CharField()
 
 
+class Enumerations(BaseModel):
+    id = IntegerField()
+    name = CharField()
+    type = CharField()
+
+
 class Trackers(BaseModel):
     id = IntegerField()
     name = CharField()
@@ -41,9 +47,11 @@ class Issues(BaseModel):
     tracker_id = IntegerField()
     subject = CharField()
     status_id = IntegerField()
+    priority_id = IntegerField()
 
     tracker = ForeignKeyField(Trackers, backref='issues', column_name='tracker_id')
     status = ForeignKeyField(IssueStatuses, backref='issues', column_name='status_id')
+    priority = ForeignKeyField(Enumerations, backref='issues', column_name='priority_id')
 
 
 class Users(BaseModel):
@@ -126,23 +134,22 @@ def db_test():
     # .select(Issues.id.alias("issue_id"), Issues, Tags.id.alias("tag_id"), Tags)\
 
     issues = Issues\
-        .select(Issues, Tags, IssueStatuses)\
-        .join(Taggings)\
+        .select(Issues, Tags, IssueStatuses, Enumerations)\
+        .join(Taggings, on=((Issues.id == Taggings.taggable_id) & (Taggings.taggable_type == 'Issue')))\
         .join(Tags)\
         .join(IssueStatuses, on=(Issues.status_id == IssueStatuses.id))\
+        .join(Enumerations, on=((Issues.priority_id == Enumerations.id) & (Enumerations.type == 'IssuePriority')))\
         .where(Issues.id >= 1499)\
-        .where(Taggings.taggable_type == 'Issue')\
         .order_by(Issues.id.asc())
     print(issues.sql())
 
-    for rows in issues.dicts():  # type: dict
-        print(rows)
-        # print(str(i.id).ljust(10), i.subject, t.taggable_type)
+    # for rows in issues.dicts():  # type: dict
+    #     print(rows)
+    #     # print(str(i.id).ljust(10), i.subject, t.taggable_type)
 
     for i in issues:  # type: Issues
-        print(i)
-        print(i.taggings.tag.name)
-        print(i.status.name)
+        print(i.id, i.subject)
+        print(i.taggings.tag.name, i.status.name, i.priority.name)
         # print(str(i.id).ljust(10), i.subject, t.taggable_type)
 
 
