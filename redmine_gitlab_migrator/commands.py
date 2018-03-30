@@ -424,8 +424,13 @@ def perform_migrate_roadmap(args):
                 "due_date": day.replace(day=month_days).strftime("%Y-%m-%d"),
             }
 
+            must_close = True
+
+            if day.strftime("%Y-%m") == today.strftime("%Y-%m"):
+                must_close = False
+
             meta = {
-                "must_close": True,
+                "must_close": must_close,
             }
             milestones_data.append((milestone, meta))
 
