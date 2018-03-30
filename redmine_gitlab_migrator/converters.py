@@ -227,6 +227,7 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
 
     issue_state = redmine_issue['status']['name']
 
+    milestone = None
     if redmine_issue.get('closed_on', None):
         # quick'n dirty extract date
         close_text = ', closed on {}'.format(redmine_issue['closed_on'][:10])
@@ -234,12 +235,17 @@ def convert_issue(redmine_api_key, redmine_issue, redmine_user_index, gitlab_use
         closed = True
     elif issue_state.lower() in closed_states:
         close_text = ', closed (state: {})'.format(issue_state)
-        milestone = None
         closed = True
     else:
         close_text = ''
-        milestone = None
         closed = False
+
+    if not milestone:
+        if issue_state.lower() == "en test" or issue_state.lower() in closed_states:
+            if redmine_issue.get('updated_on', None):
+                milestone = redmine_issue['updated_on'][:7]
+            else:
+                milestone = redmine_issue['created_on'][:7]
 
     relations = redmine_issue.get('relations', [])
     children = redmine_issue.get('children', [])
