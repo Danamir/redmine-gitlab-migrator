@@ -3,6 +3,9 @@ import argparse
 import logging
 import re
 import sys
+from calendar import monthrange
+from datetime import date
+from datetime import timedelta
 
 from redmine_gitlab_migrator.redmine import RedmineProject, RedmineClient
 from redmine_gitlab_migrator.gitlab import GitlabProject, GitlabClient
@@ -392,6 +395,43 @@ def perform_migrate_roadmap(args):
     redmine_project = RedmineProject(args.redmine_project_url, redmine)
     gitlab_project = GitlabProject(args.gitlab_project_url, gitlab)
 
+    # auto create milestones
+    milestones_data = []
+    if args.auto_milestones:
+        match = re.match("^(monthly|yearly):(\d{4}(-[01]\d)?)$", args.auto_milestones)
+        if not match:
+            log.error("--auto-milestone must be formed as (monthly|yearly):<start_date>")
+            exit(1)
+
+        milestones_type = match.group(1)
+        milestones_date = list(map(lambda x: int(x), match.group(2).split("-")))
+
+        if milestones_type == "monthly" and len(milestones_date) == 1:
+            milestones_date.append(1)
+
+        log.info("Creating %s milestones, from %s" % (milestones_type, milestones_date))
+
+        day = date(milestones_date[0], milestones_date[1], 1)
+        today = date.today()
+
+        while day <= today:
+            month_days = monthrange(day.year, day.month)[1]
+
+            milestone = {
+                "title": day.strftime("%Y-%m"),
+                "description": "\n\n*(auto-generated milestone)*",
+                "start_date": day.strftime("%Y-%m-%d"),
+                "due_date": day.replace(day=month_days).strftime("%Y-%m-%d"),
+            }
+
+            meta = {
+                "must_close": True,
+            }
+            milestones_data.append((milestone, meta))
+
+            # next month
+            day = day + timedelta(days=month_days)
+
     checks = [
         #(check_no_milestone, 'Gitlab project has no pre-existing milestone'),
         (check_origin_milestone, 'Redmine project contains versions'),
@@ -402,7 +442,18 @@ def perform_migrate_roadmap(args):
             gitlab_project=gitlab_project)
 
     versions = redmine_project.get_versions()
-    versions_data = (convert_version(i) for i in versions)
+    versions_data = [convert_version(i) for i in versions]
+
+    if milestones_data:
+        versions_titles = []
+        for data, meta in versions_data:
+            versions_titles.append(data['title'])
+
+        for data, meta in milestones_data:
+            if data['title'] in versions_titles:
+                continue
+
+            versions_data.append((data, meta))
 
     for data, meta in versions_data:
         if args.check:
@@ -410,9 +461,6 @@ def perform_migrate_roadmap(args):
         else:
             created = gitlab_project.create_milestone(data, meta)
             log.info("Version {}".format(created['title']))
-
-    if args.auto_milestones:
-        print(args.auto_milestones)
 
 
 def perform_migrate_labels(args):
