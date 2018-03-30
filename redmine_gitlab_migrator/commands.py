@@ -409,7 +409,7 @@ def perform_migrate_roadmap(args):
         if milestones_type == "monthly" and len(milestones_date) == 1:
             milestones_date.append(1)
 
-        log.info("Creating %s milestones, from %s" % (milestones_type, milestones_date))
+        log.info("Creating %s milestones, from %s" % (milestones_type, "-".join(map(lambda x: str(x).zfill(2), milestones_date))))
 
         day = date(milestones_date[0], milestones_date[1], 1)
         today = date.today()
@@ -426,7 +426,7 @@ def perform_migrate_roadmap(args):
 
             must_close = True
 
-            if day.strftime("%Y-%m") == today.strftime("%Y-%m"):
+            if day > today - timedelta(days=4*31):  # keep last 4 months open
                 must_close = False
 
             meta = {
